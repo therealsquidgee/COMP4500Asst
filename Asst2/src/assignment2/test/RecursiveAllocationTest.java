@@ -52,5 +52,41 @@ public class RecursiveAllocationTest {
 				maxHours, jobs);
 		Assert.assertEquals(expected, actual);
 	}
+	
+	@Test
+	public void smallTest1(){
+		int numWorkers = 2;
+		int maxHours = 10;
+		List<Integer> jobs = new ArrayList<>();
+		jobs = new ArrayList<>();
+		jobs.add(6);
+		jobs.add(5);
+		jobs.add(3);
+		/*jobs.add(1);
+		jobs.add(7);*/
+
+		int expected = -20;
+		int actual = RecursiveAllocation.maxRatingRecursive(numWorkers,
+				maxHours, jobs);
+		Assert.assertEquals(expected, actual);
+	}
+	
+	@Test
+	public void tooBigFirst(){
+		int numWorkers = 2;
+		int maxHours = 10;
+		List<Integer> jobs = new ArrayList<>();
+		jobs = new ArrayList<>();
+		jobs.add(11);
+		jobs.add(5);
+		jobs.add(3);
+		/*jobs.add(1);
+		jobs.add(7);*/
+
+		int expected = -200;
+		int actual = RecursiveAllocation.maxRatingRecursive(numWorkers,
+				maxHours, jobs);
+		Assert.assertEquals(expected, actual);
+	}
 
 }
