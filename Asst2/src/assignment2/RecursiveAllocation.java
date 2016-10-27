@@ -43,61 +43,97 @@ public class RecursiveAllocation {
 		freeTimes[0][numWorkers] = 1;
 		
 		int highestAllocated = getPossibleFreeTimesRecursive(jobs.subList(1, jobs.size()), 
-				freeTimes, Arrays.copyOfRange(freeTimes, 0, 1), 1);
-		int currentMax = Integer.MIN_VALUE;
-		for(int i = 0; i < Math.pow(2, highestAllocated); i++){
-			if(freeTimes[i][numWorkers] != -1){
-				int currentRating = getRating(freeTimes[i]);
-				currentMax = Math.max(currentMax, currentRating);
+				freeTimes, Arrays.copyOfRange(freeTimes, 0, 1), 1, 0, 0, true);
+		
+		return getMaxRatingBadIntern(freeTimes, highestAllocated);
+	}
+
+	private static int resultSetMin(Integer[][] freeTimes, 
+			int start, int size, int highestAllocated) {
+		int end = start + size;
+		int numWorkers = freeTimes[0].length - 1;
+		Integer[] currentMin = new Integer[] {1, highestAllocated};
+		for(int j = start; j < end; j++){
+			Integer[] result = freeTimes[j];
+			if(result[0] != null){
+				if(result[numWorkers] < highestAllocated){
+					if(freeTimes[j/numWorkers][numWorkers] != -1){
+						result = freeTimes[j/numWorkers];
+					}
+					else{
+						j += numWorkers;
+						continue;
+					}
+				}
+				int rating = getRating(result);
+				if(rating < currentMin[0]){
+					currentMin[0] = rating;
+					currentMin[1] = result[numWorkers];
+				}
 			}
 		}
+		if(currentMin[0] == 1){
+			return Integer.MIN_VALUE;
+		}
+		return currentMin[0];
+	}
+
+	private static int getMaxRatingBadIntern(Integer[][] freeTimes,
+			int highestAllocated) {
+		int numWorkers = freeTimes[0].length - 1;
+		int currentMax = getRating(freeTimes[0]);
+		int lastInternPick = highestAllocated - (highestAllocated % 3);
+		int resultSetSize = (int) Math.pow(numWorkers, (highestAllocated % 3) + 1);
 		
+		for(int i = 0; i < Math.pow(2, highestAllocated + 1); i += resultSetSize){
+			int setMin = resultSetMin(freeTimes, i, resultSetSize, 
+					highestAllocated);
+			currentMax = Math.max(currentMax, setMin);
+		}
 		return currentMax;
 	}
 
 	private static int getPossibleFreeTimesRecursive(List<Integer> jobs,
 			Integer[][] freeTimes, Integer[][] parents, 
-			int currentJobPriority){
-		int currentParent = 0;
-		boolean oneJobAllocated = false;
+			int currentJobPriority, int currentParent, int currentWorker,
+			boolean noneAllocated){
+		
+		if(jobs.size() == 0){
+			return currentJobPriority - 1;
+		}
+		
 		int numWorkers = freeTimes[0].length - 1;
 		int numChildren = (int) Math.pow(numWorkers, currentJobPriority);
 		
-		while(jobs.size() != 0){
-			if(currentParent < parents.length){
-				if(parents[currentParent][numWorkers] == currentJobPriority){
-					if(currentJobPriority % 3 == 0){
-						if(internAllocate(jobs.get(0), freeTimes, 
-							currentParent, currentJobPriority)){
-							oneJobAllocated = true;
-						}
-					}
-					else{
-						for(int i = 0; i < numWorkers; i++){
-							freeTimes[(numWorkers * currentParent) + i] = 
-									Arrays.copyOfRange(parents[currentParent], 
-											0, parents[currentParent].length);
-							if(managerAllocate(jobs.get(0), freeTimes, 
-									currentParent, i)){
-								oneJobAllocated = true;
-							}
-						}
+		if(currentParent < parents.length){
+			if(currentWorker < numWorkers){
+				int treeIndex = (numWorkers * currentParent) + 
+						currentWorker;
+				freeTimes[treeIndex] = 
+						Arrays.copyOfRange(parents[currentParent], 
+								0, parents[currentParent].length);
+				freeTimes[treeIndex][numWorkers] = -1;
+				if(parents[currentParent][numWorkers] == currentJobPriority){    
+					if(managerAllocate(jobs.get(0), freeTimes, 
+							currentParent, currentWorker, currentJobPriority)){
+						noneAllocated = false;
 					}
 				}
-				currentParent++;
-			}
-			else if(oneJobAllocated){
 				return getPossibleFreeTimesRecursive(
-						jobs.subList(1, jobs.size()), 
-						freeTimes, 
-						Arrays.copyOfRange(freeTimes, 0, numChildren), 
-						currentJobPriority + 1);
+						jobs, freeTimes, parents, currentJobPriority, 
+						currentParent, currentWorker + 1, noneAllocated);
 			}
-			else{
-				break;
-			}
+			return getPossibleFreeTimesRecursive(
+					jobs, freeTimes, parents, currentJobPriority, 
+					currentParent + 1, 0, noneAllocated);
 		}
-		return currentJobPriority - 1;
+		if(noneAllocated){
+			return currentJobPriority - 1;
+		}
+        return getPossibleFreeTimesRecursive(
+        		jobs.subList(1, jobs.size()), freeTimes, 
+        		Arrays.copyOfRange(freeTimes, 0, numChildren), 
+        		currentJobPriority + 1, 0, 0, true);
 	}
 
 	private static boolean internAllocate(Integer job, Integer[][] freeTimes,
@@ -130,14 +166,15 @@ public class RecursiveAllocation {
 	}
 
 	private static boolean managerAllocate(Integer job, Integer[][] freeTimes,
-			int currentParent, int worker) {
+			int currentParent, int worker, int currentJobPriority) {
 		int numWorkers = freeTimes[0].length - 1;
 		int treeIndex = (numWorkers * currentParent) + worker;
 		if(freeTimes[treeIndex][worker] - job >= 0){
 			freeTimes[treeIndex][worker] -= job;
-			freeTimes[treeIndex][numWorkers] += 1;
+			freeTimes[treeIndex][numWorkers] = currentJobPriority + 1;
 			return true;
 		}
+		freeTimes[treeIndex][numWorkers] = -1;
 		return false;
 	}
 	
@@ -165,6 +202,23 @@ public class RecursiveAllocation {
 //					freeTimes, currentJobPriority + resultOfAllocs[1], 
 //					currentMaxRating);
 //		}
+//	}
+	
+//	private static Integer[] getMaxOfResultSet(Integer[][] resultSet) {
+//		int numWorkers = resultSet[0].length - 1;
+//		Integer[] currentLeastFree = resultSet[0];
+//		int currentMax = getRating(currentLeastFree);
+//		for(int j = 1; j < resultSet.length; j++){
+//			Integer[] result = resultSet[j];
+//			if(result[0] != null){
+//				int rating = getRating(result);
+//				currentMax = Math.max(currentMax, rating);
+//				if(currentMax == rating){
+//					currentLeastFree = result;
+//				}
+//			}
+//		}
+//		return currentLeastFree;
 //	}
 //	
 //	/**
